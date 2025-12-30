@@ -1,4 +1,17 @@
-import telebot
+from flask import Flask
+import threading
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web():
+    app.run(host='0.0.0.0', port=8000)
+
+# Chạy web server trong một luồng riêng
+threading.Thread(target=run_web).start()import telebot
 from telebot import types
 from pymongo import MongoClient
 import requests
