@@ -14,13 +14,13 @@ MONGO_URI = 'mongodb+srv://buinek:XH1S550j3EzKpVFg@bottlee.qnaas3k.mongodb.net/?
 API_KEY_PROXY = 'AvqAKLwQAuDDSNyWtVQUsv'
 API_KEY_SIM = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJidWluZWsiLCJqdGkiOiI4MTI1NyIsImlhdCI6MTc2MjU0Mzc1MCwiZXhwIjoxODI0NzUxNzUwfQ.samlD0eFL1r0fx2JYsMX0qS6LK1zVCXXPPWHJHeHh9cWlbOWV3_WMfm64RTU2HIzQ0O6fyeog7TfDNlnmvcg2g'
 
-# ĐÃ CẬP NHẬT ID ADMIN CỦA BẠN TẠI ĐÂY
+# Cấu hình Admin và Ngân hàng
 ADMIN_ID = 5519768222 
-
 BANK_ID = 'MB'
 STK_MOI = '700122'
 TEN_CTK = 'BUI DUC ANH'
 
+# Giá dịch vụ
 PROXY_PRICE = 1500
 OTP_PRICE = 2500
 SERVICE_ID_OTP = 49 
@@ -37,7 +37,7 @@ def home(): return "Bot is running!"
 def run_web(): app.run(host='0.0.0.0', port=8000)
 threading.Thread(target=run_web).start()
 
-# --- TIỆN ÍCH ---
+# --- MENU CHÍNH ---
 def main_menu():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.add('👤 Tài khoản', '🛒 Mua hàng', '💳 Nạp tiền', '📋 Đơn hàng', '📞 Admin')
@@ -47,7 +47,7 @@ def generate_random_memo(user_id):
     prefixes = ['tiencafe', 'tienche', 'uongnuoc', 'naptien', 'muaproxy', 'banh mi', 'cafe']
     return f"{random.choice(prefixes)} {random.randint(10,99)}{user_id}"
 
-# --- LỆNH START ---
+# --- LỆNH KHỞI ĐẦU ---
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
@@ -70,7 +70,7 @@ def account_info(message):
            f"💡 *Nạp thêm tiền để trải nghiệm dịch vụ tốt hơn!*")
     bot.send_message(message.chat.id, msg, parse_mode="Markdown")
 
-# --- HỆ THỐNG MUA HÀNG ---
+# --- MUA HÀNG ---
 @bot.message_handler(func=lambda m: m.text == '🛒 Mua hàng')
 def shop_category(message):
     markup = types.InlineKeyboardMarkup()
@@ -82,7 +82,7 @@ def shop_category(message):
            "🔹 **Thuê OTP:** Nhận mã nhanh chóng, hoàn tiền nếu chưa nhận được mã.")
     bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode="Markdown")
 
-# MENU CHỌN NHÀ MẠNG PROXY
+# Menu Proxy
 @bot.callback_query_handler(func=lambda call: call.data == "cat_proxy")
 def proxy_menu(call):
     markup = types.InlineKeyboardMarkup()
@@ -93,7 +93,7 @@ def proxy_menu(call):
     bot.edit_message_text("🌐 **DANH SÁCH PROXY TĨNH**\n\n💎 Giá bán: **1.500đ / 1**\n⚡ Thời gian sử dụng: 24h.\n\nVui lòng chọn nhà mạng:", 
                           call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-# MENU THUÊ OTP
+# Menu OTP
 @bot.callback_query_handler(func=lambda call: call.data == "cat_otp")
 def otp_menu(call):
     markup = types.InlineKeyboardMarkup()
@@ -191,7 +191,7 @@ def cancel_sim_manual(call):
     users_col.update_one({"user_id": call.from_user.id}, {"$inc": {"balance": int(price), "total_spent": -int(price)}})
     bot.edit_message_text(f"🚫 **ĐÃ HỦY:** Giao dịch đã dừng và hoàn lại `{int(price):,}đ`.", call.message.chat.id, call.message.message_id)
 
-# --- NẠP TIỀN ---
+# --- NẠP TIỀN & ĐƠN HÀNG ---
 @bot.message_handler(func=lambda m: m.text == '💳 Nạp tiền')
 def recharge(message):
     memo = generate_random_memo(message.from_user.id)
@@ -200,7 +200,6 @@ def recharge(message):
                f"💰 Tối thiểu: `20,000 VND`\n📌 Nội dung: `{memo}`\n\n📩 Hỗ trợ: @buinek")
     bot.send_photo(message.chat.id, qr_url, caption=caption, parse_mode="Markdown")
 
-# --- ĐƠN HÀNG ---
 @bot.message_handler(func=lambda m: m.text == '📋 Đơn hàng')
 def order_menu(message):
     markup = types.InlineKeyboardMarkup()
@@ -217,16 +216,25 @@ def view_orders(call):
         msg += f"📅 `{o['date'].strftime('%H:%M %d/%m')}` | **{o['isp']}**\n🔑 `{o['data']}`\n\n"
     bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
 
-# --- ADMIN ---
+# --- LỆNH ADMIN + CẢM ƠN ---
 @bot.message_handler(commands=['plus'])
 def plus_money(message):
     if message.from_user.id != ADMIN_ID: return
     try:
         _, tid, amt = message.text.split()
-        users_col.update_one({"user_id": int(tid)}, {"$inc": {"balance": int(amt), "total_deposit": int(amt)}})
-        bot.send_message(ADMIN_ID, f"✅ Đã cộng {int(amt):,}đ cho ID {tid}")
-        bot.send_message(int(tid), f"🎉 Bạn vừa được cộng `{int(amt):,} VND` vào tài khoản.")
-    except: pass
+        amt_int = int(amt)
+        users_col.update_one({"user_id": int(tid)}, {"$inc": {"balance": amt_int, "total_deposit": amt_int}})
+        bot.send_message(ADMIN_ID, f"✅ Đã cộng {amt_int:,}đ cho ID {tid}")
+        
+        # Tin nhắn cảm ơn khách hàng
+        thanks_msg = (f"🎉 **NẠP TIỀN THÀNH CÔNG!**\n"
+                      f"──────────────────\n"
+                      f"💰 Bạn vừa được cộng: `{amt_int:,} VND`\n"
+                      f"🙏 **Cảm ơn bạn đã tin tưởng sử dụng dịch vụ!**\n\n"
+                      f"🚀 Bạn có thể bắt đầu mua Proxy hoặc nhận OTP ngay.")
+        bot.send_message(int(tid), thanks_msg, parse_mode="Markdown")
+    except:
+        bot.send_message(ADMIN_ID, "❌ Lỗi. Cú pháp: /plus [ID] [Số tiền]")
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel")
 def cancel_action(call): bot.edit_message_text("❌ Giao dịch đã bị hủy.", call.message.chat.id, call.message.message_id)
