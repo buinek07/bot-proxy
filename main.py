@@ -18,10 +18,12 @@ threading.Thread(target=run_web).start()
 
 # --- CẤU HÌNH THÔNG TIN CỦA BẠN ---
 TOKEN = '8371917325:AAE4ftu8HJkA5CyNd5On69r39WS10Osl1JQ'
-# Đã thay chuỗi MongoDB chuẩn và bỏ dấu <>
+# Chuỗi kết nối MongoDB chuẩn của bạn
 MONGO_URI = 'mongodb+srv://buinek:XH1S550j3EzKpVFg@bottlee.qnaas3k.mongodb.net/?appName=bottlee'
-BANK_ID = 'MB'        # Ngân hàng quân đội
-STK = 'SỐ_TK_CỦA_BẠN'  # <--- BẠN HÃY ĐIỀN SỐ TÀI KHOẢN VÀO ĐÂY
+
+# THAY SỐ TÀI KHOẢN CỦA BẠN VÀO ĐÂY
+BANK_ID = 'MB'           # Mã ngân hàng (MB, VCB, ICB...)
+STK = '123456789'        # <--- THAY SỐ TÀI KHOẢN THẬT CỦA BẠN VÀO ĐÂY
 
 bot = telebot.TeleBot(TOKEN)
 client = MongoClient(MONGO_URI)
@@ -37,7 +39,6 @@ def main_menu():
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
-    # Lưu người dùng vào database nếu chưa có
     if not users_col.find_one({"user_id": user_id}):
         users_col.insert_one({"user_id": user_id, "balance": 0})
     bot.send_message(message.chat.id, "🤖 Bot Proxy đã sẵn sàng phục vụ!", reply_markup=main_menu())
@@ -45,10 +46,17 @@ def start(message):
 @bot.message_handler(func=lambda m: m.text == '💳 Nạp tiền')
 def recharge(message):
     user_id = message.from_user.id
+    # Tự động tạo mã QR VietQR với nội dung nạp tiền kèm ID người dùng
     qr_url = f"https://img.vietqr.io/image/{BANK_ID}-{STK}-compact2.jpg?amount=50000&addInfo=NAP{user_id}"
-    bot.send_photo(message.chat.id, qr_url, 
-                   caption=f"🏦 **QUÉT MÃ NẠP TIỀN**\n\n💰 Số tiền: 50,000đ\n📝 Nội dung: `NAP {user_id}`\n\n*Vui lòng chuyển đúng nội dung để được cộng tiền tự động!*", 
-                   parse_mode="Markdown")
+    
+    caption = (f"🏦 **HỆ THỐNG NẠP TIỀN TỰ ĐỘNG**\n\n"
+               f"🏧 Ngân hàng: **{BANK_ID}**\n"
+               f"🔢 Số tài khoản: `{STK}`\n"
+               f"💰 Số tiền: `50,000đ`\n"
+               f"📝 Nội dung chuyển khoản: `NAP {user_id}`\n\n"
+               f"⚠️ **Lưu ý:** Bạn phải chuyển đúng nội dung để hệ thống tự động cộng tiền!")
+    
+    bot.send_photo(message.chat.id, qr_url, caption=caption, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text == '🛒 Mua hàng')
 def shop(message):
@@ -58,7 +66,6 @@ def shop(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "buy_vte")
 def confirm(call):
-    # Đã sửa lỗi SyntaxError ở dòng này
     text = "⚠️ **XÁC NHẬN THANH TOÁN**\n\n📦 Sản phẩm: Proxy Viettel\n💰 Giá: 5,000đ\n⏳ Thời hạn: 24 Giờ"
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ Xác nhận", callback_data="final"),
@@ -69,5 +76,4 @@ def confirm(call):
 def cancel_buy(call):
     bot.edit_message_text("❌ Giao dịch đã bị hủy.", call.message.chat.id, call.message.message_id)
 
-# Chạy bot liên tục
 bot.polling(none_stop=True)
