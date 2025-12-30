@@ -5,7 +5,7 @@ import requests
 
 # --- CẤU HÌNH THÔNG TIN (THAY ĐỔI TẠI ĐÂY) ---
 TOKEN = '8371917325:AAE4ftu8HJkA5CyNd5On69r39WS10Osl1JQ'
-MONGO_URI = 'DÁN_CHUỖI_MONGODB_CỦA_BẠN_VÀO_ĐÂY' # Ví dụ: mongodb+srv://admin:password@cluster...
+MONGO_URI = 'mongodb+srv://buinek:<17/12/07Bui>@bottlee.qnaas3k.mongodb.net/?appName=bottlee' # Ví dụ: mongodb+srv://admin:password@cluster...
 BANK_ID = 'MB'        # Mã ngân hàng nhận tiền (VD: MB, VCB, ICB)
 STK = 'SỐ_TK_CỦA_BẠN'  # Số tài khoản ngân hàng của bạn
 
