@@ -13,7 +13,86 @@ TOKEN = '8371917325:AAHN1yl83Nzzb7NjrhEiEq6VRVr6c3SXX7w'
 MONGO_URI = 'mongodb+srv://buinek:XH1S550j3EzKpVFg@bottlee.qnaas3k.mongodb.net/?appName=bottlee'
 API_KEY_SIM = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJidWluZWsiLCJqdGkiOiI4MTI1NyIsImlhdCI6MTc2MjU0Mzc1MCwiZXhwIjoxODI0NzUxNzUwfQ.samlD0eFL1r0fx2JYsMX0qS6LK1zVCXXPPWHJHeHh9cWlbOWV3_WMfm64RTU2HIzQ0O6fyeog7TfDNlnmvcg2g'
 ADMIN_ID = 5519768222 
+import telebot
+from telebot import types
+from pymongo import MongoClient
+from flask import Flask
+import threading
+import requests
+import time
 
+# --- THÔNG TIN ---
+TOKEN = '8371917325:AAHN1yl83Nzzb7NjrhEiEq6VRVr6c3SXX7w'
+API_KEY_SIM = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJidWluZWsiLCJqdGkiOiI4MTI1NyIsImlhdCI6MTc2MjU0Mzc1MCwiZXhwIjoxODI0NzUxNzUwfQ.samlD0eFL1r0fx2JYsMX0qS6LK1zVCXXPPWHJHeHh9cWlbOWV3_WMfm64RTU2HIzQ0O6fyeog7TfDNlnmvcg2g'
+MONGO_URI = 'mongodb+srv://buinek:XH1S550j3EzKpVFg@bottlee.qnaas3k.mongodb.net/?appName=bottlee'
+
+bot = telebot.TeleBot(TOKEN)
+client = MongoClient(MONGO_URI)
+db = client.bot_proxy_db
+users_col = db.users
+
+app = Flask('')
+@app.route('/')
+def home(): return "Bot is Alive!"
+def run_web(): app.run(host='0.0.0.0', port=8000)
+threading.Thread(target=run_web).start()
+
+# --- MỤC 1 & 2: LẤY THÔNG TIN & DỊCH VỤ ---
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add('👤 Tài khoản', '🛒 Thuê OTP')
+    bot.send_message(message.chat.id, "👋 Hệ thống OTP tự động sẵn sàng!", reply_markup=markup)
+
+@bot.message_handler(func=lambda m: m.text == '🛒 Thuê OTP')
+def shop(message):
+    url = f"https://apisim.codesim.net/service/get_service_by_api_key?api_key={API_KEY_SIM}"
+    try:
+        res = requests.get(url).json()
+        if res.get('status') == 200:
+            markup = types.InlineKeyboardMarkup()
+            for s in res['data'][:10]:
+                markup.add(types.InlineKeyboardButton(f"{s['name']} - {s['price']}đ", callback_data=f"buy_{s['id']}_{s['price']}"))
+            bot.send_message(message.chat.id, "✨ Chọn dịch vụ:", reply_markup=markup)
+    except: pass
+
+# --- MỤC 4, 5, 6: THUÊ SỐ, CHECK MÃ, HỦY ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
+def buy(call):
+    _, s_id, price = call.data.split('_')
+    # Lấy số (Mục 4)
+    url = f"https://apisim.codesim.net/sim/get_sim?service_id={s_id}&api_key={API_KEY_SIM}"
+    res = requests.get(url).json()
+    if res.get('status') == 200:
+        data = res['data']
+        phone = data['phone']
+        otp_id = data['otpId']
+        sim_id = data['simId']
+        
+        msg = bot.edit_message_text(f"📞 Số: `{phone}`\n⏳ Đang chờ mã...", call.message.chat.id, call.message.message_id)
+        
+        # Luồng check mã (Mục 5)
+        threading.Thread(target=check_otp, args=(call.from_user.id, otp_id, sim_id, phone, msg.message_id)).start()
+
+def check_otp(user_id, otp_id, sim_id, phone, msg_id):
+    for _ in range(25): # Thử trong 2 phút
+        time.sleep(5)
+        res = requests.get(f"https://apisim.codesim.net/otp/get_otp_by_phone_api_key?otp_id={otp_id}&api_key={API_KEY_SIM}").json()
+        if res.get('status') == 200 and res.get('data'):
+            bot.edit_message_text(f"✅ OTP: `{res['data']['code']}`\n📞 Số: `{phone}`", user_id, msg_id)
+            return
+    # Hủy số (Mục 6)
+    requests.get(f"https://apisim.codesim.net/sim/cancel_api_key/{sim_id}?api_key={API_KEY_SIM}")
+    bot.send_message(user_id, f"🔄 Hủy số {phone} do hết thời gian.")
+
+# --- KHỞI CHẠY KHÔNG LỖI CONFLICT ---
+if __name__ == "__main__":
+    while True:
+        try:
+            bot.remove_webhook() # Xóa sạch các kết nối cũ
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            time.sleep(5)
 bot = telebot.TeleBot(TOKEN)
 client = MongoClient(MONGO_URI)
 db = client.bot_proxy_db
