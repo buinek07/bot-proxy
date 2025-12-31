@@ -26,10 +26,10 @@ def main_menu():
     markup.add('👤 Tài khoản', '🛒 Mua hàng', '💳 Nạp tiền', '📋 Đơn hàng', '📞 Admin')
     return markup
 
-# --- 3. CỬA HÀNG DỊCH VỤ ---
+# --- 3. GIAO DIỆN CỬA HÀNG (NÚT DÀI ĐẸP) ---
 @bot.message_handler(func=lambda m: m.text == '🛒 Mua hàng')
 def shop(message):
-    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=1) #
     markup.add(
         types.InlineKeyboardButton("🌐 PROXY SIÊU TỐC (1.5k)", callback_data="proxy_menu"),
         types.InlineKeyboardButton("📲 THUÊ OTP GIÁ RẺ (2.5k)", callback_data="buy_otp_confirm"),
@@ -41,17 +41,17 @@ def shop(message):
         "Vui lòng chọn loại dịch vụ bạn muốn trải nghiệm bên dưới:\n\n"
         "🔹 **Proxy**: Proxy tĩnh tốc độ cao, ổn định.\n"
         "🔹 **Thuê OTP**: Nhận mã nhanh chóng, hoàn tiền nếu lỗi.\n"
-        "🔹 **Link vượt**: Vượt link app, lấy key không cần tải app."
+        "🔹 **Link vượt**: Vượt app, lấy key không cần tải app."
     ) #
     bot.send_message(message.chat.id, shop_text, reply_markup=markup, parse_mode="Markdown")
 
-# --- 4. LUỒNG MUA PROXY (GỌI API & ĐẨY HÀNG) ---
+# --- 4. LUỒNG MUA PROXY (CHỌN MẠNG -> NHẬP SỐ LƯỢNG -> ĐẨY HÀNG) ---
 @bot.callback_query_handler(func=lambda call: call.data == "proxy_menu")
 def proxy_carriers(call):
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(types.InlineKeyboardButton("🌐 Viettel", callback_data="qty_Viettel"),
                types.InlineKeyboardButton("🌐 VNPT", callback_data="qty_VNPT"),
-               types.InlineKeyboardButton("🌐 FPT", callback_data="qty_FPT"))
+               types.InlineKeyboardButton("🌐 FPT", callback_data="qty_FPT")) #
     bot.edit_message_text("✨ **CHỌN NHÀ MẠNG PROXY**\n\nVui lòng chọn nhà mạng muốn mua (Đồng giá 1.500đ):", 
                           call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
@@ -68,11 +68,11 @@ def ask_quantity(call):
 
 def process_proxy_confirm(message, carrier):
     if not message.text.isdigit():
-        bot.send_message(message.chat.id, "❌ Lỗi: Vui lòng chỉ nhập số lượng là chữ số.")
+        bot.send_message(message.chat.id, "❌ Lỗi: Vui lòng nhập số lượng bằng chữ số.")
         return
     qty = int(message.text)
     if qty < 1 or qty > 50:
-        bot.send_message(message.chat.id, "❌ Lỗi: Số lượng mua từ 1 đến 50.")
+        bot.send_message(message.chat.id, "❌ Lỗi: Số lượng chỉ từ 1 đến 50.")
         return
 
     total = qty * PROXY_PRICE
@@ -95,30 +95,30 @@ def finalize_proxy(call):
         bot.answer_callback_query(call.id, "❌ Số dư không đủ!", show_alert=True)
         return
 
-    bot.edit_message_text(f"⏳ Đang gọi API lấy `{qty}` Proxy {carrier}...", call.message.chat.id, call.message.message_id)
+    bot.edit_message_text(f"⏳ Đang khởi tạo `{qty}` Proxy {carrier}...", call.message.chat.id, call.message.message_id)
     api_url = (f"https://proxy.vn/apiv2/muaproxy.php?"
                f"loaiproxy={carrier}&key={API_KEY_PROXY}&soluong={qty}&ngay=1&type=HTTP&user=random&password=random") #
     
     try:
-        res = requests.get(api_url, timeout=45).json()
+        response = requests.get(api_url, timeout=45)
+        if not response.text: raise Exception("API rỗng")
+        res = response.json()
         if res.get('status') == 'success':
-            p_info = res.get('data') # Dữ liệu proxy từ API
+            p_info = res.get('data') #
             users_col.update_one({"user_id": call.from_user.id}, {"$inc": {"balance": -total, "total_spent": total}})
             orders_col.insert_one({"user_id": call.from_user.id, "type": f"Proxy {carrier} x{qty}", "data": p_info, "date": datetime.now()})
             
-            # Đẩy proxy trực tiếp cho khách hàng
-            bot.edit_message_text(f"✅ **MUA HÀNG THÀNH CÔNG!**\n\n🎁 **Thông tin Proxy của bạn:**\n`{p_info}`\n\n📌 Bạn có thể xem lại trong mục '📋 Đơn hàng'.", 
+            # Trả proxy trực tiếp cho khách
+            bot.edit_message_text(f"✅ **MUA HÀNG THÀNH CÔNG!**\n\n🎁 **Thông tin Proxy của bạn:**\n`{p_info}`", 
                                   call.message.chat.id, call.message.message_id, parse_mode="Markdown")
-        else: bot.edit_message_text(f"❌ Lỗi API: {res.get('message')}", call.message.chat.id, call.message.message_id)
-    except: bot.edit_message_text("❌ Lỗi kết nối API Proxy.vn", call.message.chat.id, call.message.message_id)
+        else: bot.edit_message_text(f"❌ Lỗi: {res.get('message')}", call.message.chat.id, call.message.message_id)
+    except: bot.edit_message_text("❌ Lỗi API hoặc lỗi kết nối!", call.message.chat.id, call.message.message_id)
 
-# --- 5. LUỒNG LINK VƯỢT (TRUNG GIAN QUA ADMIN) ---
+# --- 5. LUỒNG LINK VƯỢT (THÔNG BÁO CHO ADMIN) ---
 @bot.callback_query_handler(func=lambda call: call.data == "link_vuot_intro")
 def link_vuot_intro(call):
     text = ("🔗 **THÔNG TIN LINK VƯỢT**\n\n"
-            "Link vượt là link vượt app\n"
-            "Ko cần tải app\n"
-            "Giá **10k/1**\n\n"
+            "Link vượt là link vượt app\nKo cần tải app\nGiá **10k/1**\n\n"
             "📝 **Vui lòng ghi tên game cần vượt**\n"
             "VD: f168, fly88") #
     msg = bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -127,29 +127,24 @@ def link_vuot_intro(call):
 def process_link_vuot_request(message):
     game_name = message.text
     user_id = message.from_user.id
-    user_name = message.from_user.first_name
-
-    # Thông báo cho khách
-    bot.send_message(user_id, "⏳ Vui lòng đợi 1-2p để lấy link vượt...")
+    bot.send_message(user_id, "⏳ Vui lòng đợi 1-2p để lấy link vượt...") #
     
-    # Gửi thông tin game cho Admin xử lý
-    admin_msg = (f"🚀 **YÊU CẦU LINK VƯỢT MỚI**\n"
-                 f"👤 Khách: {user_name} (`{user_id}`)\n"
+    admin_msg = (f"🚀 **YÊU CẦU LINK VƯỢT**\n"
+                 f"👤 Khách: {message.from_user.first_name} (`{user_id}`)\n"
                  f"🎮 Game: **{game_name}**\n"
-                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                 f"👉 Trả lời link: `/sendlink {user_id} [Link]`")
-    bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+                 f"👉 Trả lời link: `/sendlink {user_id} [Link]`") #
+    bot.send_message(ADMIN_ID, admin_msg)
 
 @bot.message_handler(commands=['sendlink'])
-def send_link_to_user(message):
+def send_link(message):
     if message.from_user.id != ADMIN_ID: return
     try:
         _, target_id, link = message.text.split(maxsplit=2)
-        bot.send_message(int(target_id), f"✅ **Link vượt của bạn đã sẵn sàng:**\n{link}", parse_mode="Markdown") #
-        bot.send_message(ADMIN_ID, f"✅ Đã gửi link cho ID {target_id}")
-    except: bot.send_message(ADMIN_ID, "❌ Sai cú pháp. VD: /sendlink 123456 https://link.com")
+        bot.send_message(int(target_id), f"✅ **Link vượt của bạn đã sẵn sàng:**\n{link}") #
+        bot.send_message(ADMIN_ID, "✅ Đã gửi link thành công!")
+    except: bot.send_message(ADMIN_ID, "❌ Sai cú pháp: /sendlink [ID] [Link]")
 
-# --- KHỞI CHẠY ---
+# --- 6. KHỞI CHẠY ---
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
     bot.polling(none_stop=True)
