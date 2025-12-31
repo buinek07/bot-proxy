@@ -1,4 +1,36 @@
-import os, telebot, requests, random, time, threading
+# --- PHẦN CỬA HÀNG ĐÃ ĐƯỢC CHỈNH CHUẨN ---
+@bot.message_handler(func=lambda m: m.text == '🛒 Mua hàng')
+def shop(message):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # Các nút bấm to, icon chuẩn theo yêu cầu
+    markup.add(
+        types.InlineKeyboardButton("🌐 PROXY SIÊU TỐC", callback_data="proxy_menu"),
+        types.InlineKeyboardButton("📲 THUÊ OTP GIÁ RẺ", callback_data="buy_otp_confirm")
+    )
+    
+    # Nội dung tin nhắn chuẩn 100% theo yêu cầu của bạn
+    shop_text = (
+        "🛒 **CỬA HÀNG DỊCH VỤ**\n\n"
+        "Vui lòng chọn loại dịch vụ bạn muốn trải nghiệm bên dưới:\n\n"
+        "🔹 **Proxy**: Proxy tĩnh tốc độ cao, ổn định.\n"
+        "🔹 **Thuê OTP**: Nhận mã nhanh chóng, hoàn tiền nếu lỗi."
+    )
+    bot.send_message(message.chat.id, shop_text, reply_markup=markup, parse_mode="Markdown")
+
+# --- PHẦN THÔNG TIN CÁ NHÂN (CẬP NHẬT THEO ẢNH BẠN GỬI) ---
+@bot.message_handler(func=lambda m: m.text == '👤 Tài khoản')
+def account_info(message):
+    u = users_col.find_one({"user_id": message.from_user.id})
+    # Hiển thị ID và số dư chuẩn theo ảnh mẫu
+    msg = (f"🌟 **THÔNG TIN CÁ NHÂN** 🌟\n\n"
+           f"👤 Tên khách hàng: {u.get('username', 'None')}\n"
+           f"🆔 ID của bạn: `{message.from_user.id}`\n"
+           f"📅 Ngày gia nhập: {u.get('join_date', 'None')}\n"
+           f"--------------------------\n"
+           f"💰 Số dư khả dụng: {u.get('balance', 0):,} VNĐ\n"
+           f"📥 Tổng nạp: {u.get('total_deposit', 0):,} VNĐ\n"
+           f"📤 Tổng đã chi tiêu: {u.get('total_spent', 0):,} VNĐ")
+    bot.send_message(message.chat.id, msg, parse_mode="Markdown")import os, telebot, requests, random, time, threading
 from flask import Flask
 from pymongo import MongoClient
 from datetime import datetime
