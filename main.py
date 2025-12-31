@@ -2,6 +2,51 @@ import os
 import telebot
 from flask import Flask
 import threading
+from telebot import types
+
+# Cấu hình biến môi trường
+TOKEN = os.getenv('TOKEN')
+ADMIN_ID = os.getenv('ADMIN_ID', '5519768222')
+
+bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
+
+@app.route('/')
+def index(): return "Bot is Online"
+
+# Hàm tạo Menu nút bấm
+def main_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(types.KeyboardButton("👤 Tài khoản"), types.KeyboardButton("🛒 Mua hàng"))
+    markup.add(types.KeyboardButton("💳 Nạp tiền"), types.KeyboardButton("📝 Đơn hàng"))
+    return markup
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, "Chào Admin! Hệ thống đã sẵn sàng.", reply_markup=main_menu())
+
+# XỬ LÝ KHI NHẤN NÚT (Sửa lỗi nút không dùng được)
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    if message.text == "👤 Tài khoản":
+        bot.reply_to(message, "📌 Thông tin tài khoản của bạn đang được cập nhật...")
+    elif message.text == "🛒 Mua hàng":
+        bot.reply_to(message, "🛍 Lời chào mua hàng: Chào mừng bạn! Vui lòng chọn gói sản phẩm.")
+    elif message.text == "💳 Nạp tiền":
+        bot.reply_to(message, "💳 Vui lòng liên hệ Admin để nạp tiền.")
+    elif message.text == "📝 Đơn hàng":
+        bot.reply_to(message, "📝 Bạn chưa có đơn hàng nào.")
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8000)
+
+if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()
+    print("Bot đang bắt đầu Polling...")
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)import os
+import telebot
+from flask import Flask
+import threading
 from pymongo import MongoClient
 from telebot import types
 
