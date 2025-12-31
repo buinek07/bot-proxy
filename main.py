@@ -3,54 +3,73 @@ import telebot
 from flask import Flask
 import threading
 from pymongo import MongoClient
+from telebot import types
 
-# Lấy các biến môi trường từ Koyeb
+# 1. Lấy thông tin cấu hình
 TOKEN = os.getenv('TOKEN')
 MONGO_URI = os.getenv('MONGO_URI')
-ADMIN_ID = os.getenv('ADMIN_ID', '5519768222') # Mặc định là ID của bạn
+ADMIN_ID = os.getenv('ADMIN_ID', '5519768222') #
 
-# Khởi tạo Bot và Database
+# 2. Khởi tạo Bot và Database
 bot = telebot.TeleBot(TOKEN)
 client = MongoClient(MONGO_URI)
-db = client['bottlee'] # Tên database từ URI của bạn
+db = client['bottlee'] #
 
-# Khởi tạo Flask để giữ server luôn sống
+# 3. Cấu hình Flask để giữ server sống (Port 8000)
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return "Bot đang chạy trực tuyến!"
+    return "Bot is running..."
 
-# --- PHẦN XỬ LÝ LỆNH BOT ---
+# --- 4. LOGIC XỬ LÝ LỆNH /START VÀ HIỆN NÚT BẤM ---
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = str(message.from_user.id)
+    
+    # Tạo menu nút bấm (ReplyKeyboardMarkup)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn1 = types.KeyboardButton("👤 Tài khoản")
+    btn2 = types.KeyboardButton("🛒 Mua hàng")
+    btn3 = types.KeyboardButton("💳 Nạp tiền")
+    btn4 = types.KeyboardButton("📝 Đơn hàng")
+    markup.add(btn1, btn2, btn3, btn4)
+
     if user_id == ADMIN_ID:
-        bot.reply_to(message, "Chào Admin! Bot đã sẵn sàng nhận lệnh.")
+        bot.send_message(message.chat.id, "Chào Admin! Hệ thống đã sẵn sàng.", reply_markup=markup)
     else:
-        bot.reply_to(message, "Bạn không có quyền sử dụng bot này.")
+        bot.send_message(message.chat.id, "Chào mừng bạn đến với shop! Vui lòng chọn chức năng bên dưới.", reply_markup=markup)
 
-@bot.message_handler(commands=['huydot'])
-def huy_dot(message):
-    # Thêm logic xử lý hủy đợt của bạn ở đây
-    bot.reply_to(message, "Đã thực hiện lệnh hủy đợt.")
+# --- 5. LOGIC XỬ LÝ KHI NGƯỜI DÙNG NHẤN NÚT ---
 
-# --- CẤU HÌNH CHẠY ĐA LUỒNG (THREADING) ---
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    text = message.text
+    
+    if text == "👤 Tài khoản":
+        # Ở đây bạn có thể code thêm phần lấy dữ liệu từ MongoDB
+        bot.reply_to(message, "Thông tin tài khoản của bạn:\n- ID: " + str(message.from_user.id) + "\n- Số dư: 0đ")
+        
+    elif text == "🛒 Mua hàng":
+        bot.reply_to(message, "🛍 Danh sách sản phẩm đang bán: \n1. Gói Proxy VIP\n2. Tài khoản Game\n(Vui lòng liên hệ Admin để mua)")
+        
+    elif text == "💳 Nạp tiền":
+        bot.reply_to(message, "Hệ thống nạp tiền tự động đang bảo trì. Vui lòng chuyển khoản cho Admin: 5519768222")
+
+    elif text == "📝 Đơn hàng":
+        bot.reply_to(message, "Bạn chưa có đơn hàng nào gần đây.")
+
+# --- 6. CẤU HÌNH CHẠY ĐA LUỒNG ---
 
 def run_flask():
-    # Flask chạy trên port 8000 theo cấu hình Koyeb
     app.run(host='0.0.0.0', port=8000)
 
 if __name__ == "__main__":
-    # 1. Chạy Flask trong luồng phụ
+    # Chạy Flask ở luồng phụ để Koyeb không báo lỗi Health Check
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
     
-    # 2. Chạy Bot trong luồng chính
     print("Bot Telegram đang bắt đầu Polling...")
-    try:
-        bot.infinity_polling(timeout=10, long_polling_timeout=5)
-    except Exception as e:
-        print(f"Lỗi Polling: {e}")
+    bot.infinity_polling()
